@@ -51,6 +51,7 @@ Aspirar sujeira → bateria cai → voltar à base → recarregar → aspirar o 
 | **A / D** (ou ← / →) | Girar no próprio eixo |
 | **Shift esquerdo** (segurar) | **Turbo**: +60% de velocidade, gasta 2× bateria |
 | **E** (apertar repetidas vezes) | Soltar-se de uma meia enroscada *(extra)* |
+| **Mouse** (mover) / **roda** | Girar a câmera em volta do robô / zoom |
 | **Esc** | Pausar / despausar |
 
 - Controle em **"tanque"**: frente e ré relativas ao robô, não à câmera. Combina com o tema e evita confusão de câmera.
@@ -88,8 +89,8 @@ Aspirar sujeira → bateria cai → voltar à base → recarregar → aspirar o 
 | Rigidbody | Massa 2, **Interpolate**, Collision Detection **Continuous**, **congelar rotação X e Z** |
 | Physics Material | Atrito **0** (dinâmico e estático), Friction Combine = **Minimum** |
 | Movimento | Em `FixedUpdate`, via `Rigidbody.linearVelocity` (Unity 6) ou `MovePosition` + `MoveRotation` |
-| Velocidade | `2.0 m/s` (turbo: `3.2 m/s`) |
-| Giro | `180°/s` |
+| Velocidade | `1.3 m/s` (turbo: `2.1 m/s`) |
+| Giro | `120°/s` × sensibilidade (Opções, 0.4–1.6) |
 
 ### Visual
 - Pode ser feito com **primitivas do Unity**: cilindro achatado + "para-choque" + LED.
@@ -164,7 +165,8 @@ Aspirar sujeira → bateria cai → voltar à base → recarregar → aspirar o 
 
 ### Gato (obrigatório)
 - **NavMeshAgent** (pacote AI Navigation) patrulhando entre 4–6 waypoints, com velocidade `1.2 m/s` e pausa de 1–3 s em cada ponto (às vezes "deita e dorme" por 5 s).
-- Se o robô chegar a **menos de 1.5 m**, o gato se vira para ele por um instante (reação, sem perseguir).
+- **Perseguição:** se o gato **vê** o robô (a menos de 3.2 m, sem parede no meio), para por 0.6 s ("!" sobre a cabeça) e corre atrás dele a `1.6 m/s` — mais rápido que o robô andando, mais lento que o turbo. Desiste se o robô se esconder, se afastar mais de 5 m, após 8 s ou depois de acertar (5 s sem perseguir).
+- **Esconderijos:** embaixo do **sofá** e da **cama** o gato não cabe (a NavMesh dele não passa ali). Robô escondido não é visto.
 - **Encostar no gato:** o robô leva um empurrão (`AddForce` com impulso para longe do gato), −10 de bateria, miado e 1 s de invulnerabilidade, para não perder bateria em sequência.
 - Colliders do gato: trigger para detectar contato + collider sólido simples (o robô não atravessa o gato).
 
@@ -205,8 +207,9 @@ MainMenu → Playing ⇄ Paused
 ### Telas
 | Tela | Conteúdo |
 |---|---|
-| **Menu principal** | Título, **Jogar**, **Como jogar** (painel com os controles), **Sair** |
-| **Pausa** | **Continuar**, **Reiniciar**, **Menu** |
+| **Menu principal** | Título, **Jogar**, **Como jogar** (painel com os controles), **Opções**, **Sair** |
+| **Pausa** | **Continuar**, **Opções**, **Reiniciar**, **Menu** |
+| **Opções** (menu e pausa) | Sensibilidade do giro, sensibilidade do mouse, volume, inverter Y, recentrar câmera, Padrão. Salvo em PlayerPrefs |
 | **Vitória** | "Casa limpa!", tempo restante, **estrelas** (3★ se sobrou >60 s, 2★ >30 s, 1★ caso contrário), **Jogar de novo**, **Menu** |
 | **Derrota** | Motivo da derrota, % que chegou a limpar, **Tentar de novo**, **Menu** |
 
@@ -377,3 +380,4 @@ Assets/_Project/
 |---|---|
 | 17/11/2026 | Versão inicial |
 | 17/11/2026 | **Implementação completa (passos 1–14).** Mudanças em relação ao plano: (a) collider do robô = **cilindro convexo** (MeshCollider), porque esfera/cápsula com 0.35 m de diâmetro não cabem nos 0.09 m de altura; (b) espelho dos degraus = **0.25 m**, senão o sensor de 0.2 m não detecta a borda; (c) tapetes e base de recarga sem collider (um degrau de milímetros travaria o robô); (d) visual com **primitivas + texturas geradas por código** e **áudio sintetizado por código** (sem assets de terceiros; dá para trocar por Kenney depois); (e) as cenas são montadas por Editor script (`Tools/Poeirinha/Montar tudo`) em vez de roteiro manual; (f) 17 testes PlayMode automáticos cobrindo boa parte da seção 17. |
+| 17/11/2026 | Após o 1º playtest: robô mais lento (1.3 m/s, giro 120°/s); tela de **Opções** (sensibilidade do giro e do mouse, volume); **câmera pelo mouse** (órbita + zoom, recentraliza sozinha); **gato persegue** o robô quando o vê, e o robô pode se esconder embaixo do sofá/cama. Correção: o Rigidbody do gato estava com Interpolate e travava o NavMeshAgent. |

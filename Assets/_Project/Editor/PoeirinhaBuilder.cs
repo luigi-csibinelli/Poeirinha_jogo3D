@@ -189,6 +189,8 @@ namespace Poeirinha.EditorTools
             s0.FindPropertyRelative("agentHeight").floatValue = 0.3f;
             s0.FindPropertyRelative("agentClimb").floatValue = 0.08f;
             s0.FindPropertyRelative("agentSlope").floatValue = 40f;
+            SerializedProperty cell = s0.FindPropertyRelative("cellSize");
+            if (cell != null) cell.floatValue = 0.06f;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -513,7 +515,9 @@ namespace Poeirinha.EditorTools
             var rb = root.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            // SEM interpolação: quem move o gato é o NavMeshAgent (pelo Transform). Com
+            // Interpolate, o Rigidbody "puxa" o Transform de volta e o gato anda devagar/trava.
+            rb.interpolation = RigidbodyInterpolation.None;
 
             // Collider sólido simples (o robô não atravessa o gato)
             var solid = root.AddComponent<CapsuleCollider>();
@@ -529,7 +533,27 @@ namespace Poeirinha.EditorTools
             trig.center = new Vector3(0, 0.15f, 0.04f);
             trig.size = new Vector3(0.36f, 0.3f, 0.72f);
 
+            // "!" que aparece quando o gato vê o robô
+            var alert = new GameObject("Alert");
+            alert.transform.SetParent(root.transform, false);
+            alert.transform.localPosition = new Vector3(0, 0.52f, 0.2f);
+            var alertText = alert.AddComponent<TextMeshPro>();
+            alertText.font = UIFont;
+            alertText.text = "!";
+            alertText.fontSize = 3f;
+            alertText.fontStyle = FontStyles.Bold;
+            alertText.alignment = TextAlignmentOptions.Center;
+            alertText.color = new Color(1f, 0.35f, 0.25f);
+            alertText.outlineWidth = 0.2f;
+            alertText.outlineColor = Color.white;
+            alertText.rectTransform.sizeDelta = new Vector2(0.3f, 0.3f);
+            alert.AddComponent<Billboard>();
+            alert.SetActive(false);
+
             var ai = root.AddComponent<CatAI>();
+            Set(ai, "alertIndicator", alert);
+            SetMask(ai, "sightBlockers", 1 << LayerWall);
+            SetMask(ai, "hideMask", ~((1 << LayerPlayer) | (1 << LayerCat) | (1 << LayerIgnoreRaycast) | (1 << LayerUI)));
             Set(ai, "model", model);
             Set(ai, "tail", tail);
             Set(ai, "sleepIndicator", zzz);
@@ -768,7 +792,7 @@ namespace Poeirinha.EditorTools
             Set(audio, "timer", timer);
 
             // UI
-            BuildGameUI(battery, cleaning, timer, cliff, controller);
+            BuildGameUI(battery, cleaning, timer, cliff, controller, catAI);
 
             EditorSceneManager.SaveScene(scene, LevelScenePath);
         }
@@ -1257,6 +1281,9 @@ namespace Poeirinha.EditorTools
             surface.collectObjects = CollectObjects.All;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.layerMask = ~((1 << LayerPlayer) | (1 << LayerCat) | (1 << LayerIgnoreRaycast) | (1 << LayerUI));
+            // Célula de 5 cm (o padrão do Unity é pensado para um humano de 0.5 m de raio).
+            surface.overrideVoxelSize = true;
+            surface.voxelSize = 0.05f;
             Physics.SyncTransforms();
             surface.BuildNavMesh();
             string path = SceneDir + "/Level01_NavMesh.asset";
@@ -1289,7 +1316,7 @@ namespace Poeirinha.EditorTools
             es.AddComponent<InputSystemUIInputModule>();
         }
 
-        static void BuildGameUI(BatterySystem battery, CleaningManager cleaning, LevelTimer timer, CliffSensor cliff, RobotController robot)
+        static void BuildGameUI(BatterySystem battery, CleaningManager cleaning, LevelTimer timer, CliffSensor cliff, RobotController robot, CatAI cat)
         {
             Canvas canvas = CreateCanvas("Canvas");
             Transform c = canvas.transform;
@@ -1348,7 +1375,7 @@ namespace Poeirinha.EditorTools
             toast.outlineWidth = 0.15f;
             toast.outlineColor = new Color(0.1f, 0.08f, 0.05f, 1f);
 
-            Label("Hint", hud, "WASD / setas: mover   |   Shift: turbo   |   E: soltar meia   |   Esc: pausa", 22, new Color(1, 1, 1, 0.55f),
+            Label("Hint", hud, "WASD / setas: mover   |   Mouse: câmera   |   Shift: turbo   |   E: soltar meia   |   Esc: pausa", 22, new Color(1, 1, 1, 0.55f),
                 new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-40, 30), new Vector2(1000, 34), TextAlignmentOptions.Right);
 
             Set(hudCtrl, "battery", battery);
@@ -1356,6 +1383,7 @@ namespace Poeirinha.EditorTools
             Set(hudCtrl, "timer", timer);
             Set(hudCtrl, "cliffSensor", cliff);
             Set(hudCtrl, "robot", robot);
+            Set(hudCtrl, "cat", cat);
             Set(hudCtrl, "cleanFill", cleanFill);
             Set(hudCtrl, "cleanText", cleanText);
             Set(hudCtrl, "timerText", timerText);
@@ -1378,15 +1406,18 @@ namespace Poeirinha.EditorTools
             ((RectTransform)pauseGo.transform).sizeDelta = Vector2.zero;
             Image dim = UIImage(pausePanel, new Color(0, 0, 0, 0.55f), null, false);
             dim.raycastTarget = true;
-            RectTransform card = UIRect("Card", pausePanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 540));
+            RectTransform card = UIRect("Card", pausePanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 640));
             UIImage(card, PanelBg);
             Label("Title", card, "Pausado", 70, Color.white, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -40), new Vector2(500, 90), TextAlignmentOptions.Center, FontStyles.Bold);
-            Button bContinue = UIButton("Continue", card, "Continuar", new Vector2(0, 50), new Vector2(380, 90), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnContinueClicked, out _);
-            Button bRestart = UIButton("Restart", card, "Reiniciar", new Vector2(0, -60), new Vector2(380, 90), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnRestartClicked, out _);
-            Button bMenu = UIButton("Menu", card, "Menu", new Vector2(0, -170), new Vector2(380, 90), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnMenuClicked, out _);
-            ChainVertical(bContinue, bRestart, bMenu);
+            Button bContinue = UIButton("Continue", card, "Continuar", new Vector2(0, 110), new Vector2(380, 88), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnContinueClicked, out _);
+            Button bOptions = UIButton("Options", card, "Opções", new Vector2(0, 5), new Vector2(380, 88), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnOptionsClicked, out _);
+            Button bRestart = UIButton("Restart", card, "Reiniciar", new Vector2(0, -100), new Vector2(380, 88), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnRestartClicked, out _);
+            Button bMenu = UIButton("Menu", card, "Menu", new Vector2(0, -205), new Vector2(380, 88), ButtonNormal, ButtonHighlight, Color.white, pauseMenu.OnMenuClicked, out _);
+            ChainVertical(bContinue, bOptions, bRestart, bMenu);
             Set(pauseMenu, "panel", pausePanel.gameObject);
             Set(pauseMenu, "firstSelected", bContinue.gameObject);
+            Set(pauseMenu, "card", card.gameObject);
+            Set(pauseMenu, "optionsButton", bOptions.gameObject);
 
             // ---------------- Fim de jogo
             var endGo = new GameObject("EndScreen", typeof(RectTransform));
@@ -1422,6 +1453,62 @@ namespace Poeirinha.EditorTools
             SetArray(end, "stars", stars);
             Set(end, "primaryButtonLabel", retryLabel);
             Set(end, "firstSelected", bRetry.gameObject);
+
+            // Opções (por último no Canvas: desenha por cima da pausa)
+            Set(pauseMenu, "options", BuildOptionsPanel(c));
+        }
+
+        static OptionsMenu BuildOptionsPanel(Transform canvas)
+        {
+            var go = new GameObject("OptionsMenu", typeof(RectTransform));
+            go.transform.SetParent(canvas, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
+            var menu = go.AddComponent<OptionsMenu>();
+
+            RectTransform panel = Stretch("Panel", rt);
+            RectTransform card = UIRect("Card", panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1060, 780));
+            Image cardImg = UIImage(card, PanelBg);
+            cardImg.raycastTarget = true;
+            Label("Title", card, "Opções", 72, Mint, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30), new Vector2(900, 96), TextAlignmentOptions.Center, FontStyles.Bold);
+
+            TextMeshProUGUI Row(string text, float y) =>
+                Label("Label", card, text, 30, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-290, y), new Vector2(380, 60), TextAlignmentOptions.Left);
+            TextMeshProUGUI Value(float y) =>
+                Label("Value", card, "1.0x", 30, Mint, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(430, y), new Vector2(120, 60), TextAlignmentOptions.Right, FontStyles.Bold);
+
+            Row("Sensibilidade do giro (A/D)", 200);
+            Slider turn = UISlider("TurnSlider", card, new Vector2(140, 200), new Vector2(400, 44), Mint, ButtonHighlight, menu.OnTurnChanged);
+            TextMeshProUGUI turnValue = Value(200);
+            Row("Sensibilidade do mouse", 115);
+            Slider mouse = UISlider("MouseSlider", card, new Vector2(140, 115), new Vector2(400, 44), Mint, ButtonHighlight, menu.OnMouseChanged);
+            TextMeshProUGUI mouseValue = Value(115);
+            Row("Volume", 30);
+            Slider volume = UISlider("VolumeSlider", card, new Vector2(140, 30), new Vector2(400, 44), Mint, ButtonHighlight, menu.OnVolumeChanged);
+            TextMeshProUGUI volumeValue = Value(30);
+            Toggle invert = UIToggle("InvertY", card, "Inverter eixo vertical do mouse", new Vector2(-60, -60), new Vector2(820, 56), Mint, ButtonHighlight, menu.OnInvertYChanged);
+            Toggle recenter = UIToggle("Recenter", card, "Câmera volta para trás do robô sozinha", new Vector2(-60, -135), new Vector2(820, 56), Mint, ButtonHighlight, menu.OnRecenterChanged);
+
+            Button reset = UIButton("Reset", card, "Padrão", new Vector2(-200, -280), new Vector2(340, 88), ButtonNormal, ButtonHighlight, Color.white, menu.OnResetClicked, out _);
+            Button back = UIButton("Back", card, "Voltar", new Vector2(200, -280), new Vector2(340, 88), ButtonNormal, ButtonHighlight, Color.white, menu.OnBackClicked, out _);
+            ChainVertical(turn, mouse, volume, invert, recenter, back);
+            // "Padrão" fica à esquerda do "Voltar"
+            var navBack = back.navigation; navBack.selectOnLeft = reset; back.navigation = navBack;
+            var navReset = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = back, selectOnUp = recenter, selectOnDown = turn };
+            reset.navigation = navReset;
+
+            Set(menu, "panel", panel.gameObject);
+            Set(menu, "firstSelected", turn.gameObject);
+            Set(menu, "turnSlider", turn);
+            Set(menu, "turnValue", turnValue);
+            Set(menu, "mouseSlider", mouse);
+            Set(menu, "mouseValue", mouseValue);
+            Set(menu, "volumeSlider", volume);
+            Set(menu, "volumeValue", volumeValue);
+            Set(menu, "invertYToggle", invert);
+            Set(menu, "recenterToggle", recenter);
+            panel.gameObject.SetActive(false);
+            return menu;
         }
 
         // =====================================================================
@@ -1510,10 +1597,11 @@ namespace Poeirinha.EditorTools
             title.outlineWidth = 0.12f;
             title.outlineColor = new Color(0.05f, 0.2f, 0.17f);
             Label("Subtitle", main, "Limpe a casa antes do dono voltar!", 32, new Color(1, 1, 1, 0.85f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 195), new Vector2(600, 90));
-            Button play = UIButton("Play", main, "Jogar", new Vector2(0, 40), new Vector2(440, 96), ButtonNormal, ButtonHighlight, Color.white, menu.OnPlayClicked, out _);
-            Button howTo = UIButton("HowTo", main, "Como jogar", new Vector2(0, -75), new Vector2(440, 96), ButtonNormal, ButtonHighlight, Color.white, menu.OnHowToClicked, out _);
-            Button quit = UIButton("Quit", main, "Sair", new Vector2(0, -190), new Vector2(440, 96), ButtonNormal, ButtonHighlight, Color.white, menu.OnQuitClicked, out _);
-            ChainVertical(play, howTo, quit);
+            Button play = UIButton("Play", main, "Jogar", new Vector2(0, 60), new Vector2(440, 90), ButtonNormal, ButtonHighlight, Color.white, menu.OnPlayClicked, out _);
+            Button howTo = UIButton("HowTo", main, "Como jogar", new Vector2(0, -45), new Vector2(440, 90), ButtonNormal, ButtonHighlight, Color.white, menu.OnHowToClicked, out _);
+            Button optionsBtn = UIButton("Options", main, "Opções", new Vector2(0, -150), new Vector2(440, 90), ButtonNormal, ButtonHighlight, Color.white, menu.OnOptionsClicked, out _);
+            Button quit = UIButton("Quit", main, "Sair", new Vector2(0, -255), new Vector2(440, 90), ButtonNormal, ButtonHighlight, Color.white, menu.OnQuitClicked, out _);
+            ChainVertical(play, howTo, optionsBtn, quit);
             Label("Footer", main, "Projeto 3D - Insper 2026.2", 22, new Color(1, 1, 1, 0.45f), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(600, 40));
 
             RectTransform how = UIRect("HowToPanel", menuRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1180, 860));
@@ -1522,20 +1610,23 @@ namespace Poeirinha.EditorTools
             string body =
                 "Você é um <color=#5CE0B8><b>robô aspirador</b></color>. Aspire <b>90%</b> da sujeira antes do dono voltar (3 minutos).\n\n" +
                 "<b>W / S</b> ou setas: andar para frente / ré\n" +
-                "<b>A / D</b> ou setas: girar\n" +
+                "<b>A / D</b> ou setas: girar  |  <b>Mouse</b>: olhar em volta (roda = zoom)\n" +
                 "<b>Shift</b> (segurar): turbo - mais rápido, gasta o dobro de bateria\n" +
                 "<b>E</b> (várias vezes): soltar-se de uma meia enroscada\n" +
                 "<b>Esc</b>: pausar\n\n" +
                 "<color=#FFD24D>Bateria:</color> volte à <b>base azul</b> para recarregar.\n" +
                 "<color=#FF6B5E>Cuidado:</color> a escada não tem grade - se cair, acabou! O bip avisa quando a borda está perto.\n" +
-                "O <b>gato</b> empurra o robô e tira bateria. Tem sujeira escondida <b>embaixo dos móveis</b>!";
-            Label("Body", how, body, 31, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 10), new Vector2(1060, 560), TextAlignmentOptions.Left);
+                "O <b>gato</b> corre atrás do robô quando te vê: fuja no turbo ou <b>esconda-se embaixo do sofá ou da cama</b>!\n" +
+                "Tem sujeira escondida embaixo dos móveis. Sensibilidade e volume em <b>Opções</b>.";
+            Label("Body", how, body, 28, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 10), new Vector2(1080, 600), TextAlignmentOptions.Left);
             Button back = UIButton("Back", how, "Voltar", new Vector2(0, -350), new Vector2(360, 90), ButtonNormal, ButtonHighlight, Color.white, menu.OnBackClicked, out _);
 
             Set(menu, "mainPanel", main.gameObject);
             Set(menu, "howToPanel", how.gameObject);
             Set(menu, "firstSelectedMain", play.gameObject);
             Set(menu, "firstSelectedHowTo", back.gameObject);
+            Set(menu, "optionsButton", optionsBtn.gameObject);
+            Set(menu, "options", BuildOptionsPanel(canvas.transform));
             how.gameObject.SetActive(false);
 
             EditorSceneManager.SaveScene(scene, MenuScenePath);

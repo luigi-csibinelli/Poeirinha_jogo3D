@@ -20,12 +20,13 @@ namespace Poeirinha
     public class RobotController : MonoBehaviour
     {
         [Header("Velocidade")]
-        [SerializeField] float maxSpeed = 2f;            // m/s
-        [SerializeField] float turboMultiplier = 1.6f;   // 2.0 × 1.6 = 3.2 m/s
-        [SerializeField] float turnSpeed = 180f;         // graus/s
-        [SerializeField] float acceleration = 5f;        // m/s²
-        [SerializeField] float deceleration = 7f;        // m/s² (freia um pouco mais rápido que acelera)
-        [SerializeField] float turnAcceleration = 900f;  // graus/s²
+        [SerializeField] float maxSpeed = 1.3f;          // m/s
+        [SerializeField] float turboMultiplier = 1.6f;   // 1.3 × 1.6 ≈ 2.1 m/s
+        [Tooltip("Giro com sensibilidade 1.0. A tela de Opções multiplica este valor.")]
+        [SerializeField] float turnSpeed = 120f;         // graus/s
+        [SerializeField] float acceleration = 4f;        // m/s²
+        [SerializeField] float deceleration = 6f;        // m/s² (freia um pouco mais rápido que acelera)
+        [SerializeField] float turnAcceleration = 600f;  // graus/s²
 
         [Header("Empurrão")]
         [Tooltip("Quão rápido o empurrão do gato perde força (por segundo).")]
@@ -146,13 +147,15 @@ namespace Poeirinha
             else
             {
                 float targetSpeed = throttleInput * maxSpeed * (turboInput ? turboMultiplier : 1f);
-                float targetTurn = turnInput * turnSpeed;
+                // Sensibilidade do giro vem da tela de Opções (GameSettings).
+                float sensitivity = GameSettings.TurnSensitivity;
+                float targetTurn = turnInput * turnSpeed * sensitivity;
                 if (IsStuck) targetSpeed = targetTurn = 0f;
 
                 // Acelera devagar e freia um pouco mais rápido: sensação de robô de verdade.
                 float rate = Mathf.Abs(targetSpeed) > 0.01f ? acceleration : deceleration;
                 currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, rate * dt);
-                currentTurnSpeed = Mathf.MoveTowards(currentTurnSpeed, targetTurn, turnAcceleration * dt);
+                currentTurnSpeed = Mathf.MoveTowards(currentTurnSpeed, targetTurn, turnAcceleration * sensitivity * dt);
 
                 // Empurrão decai exponencialmente (independe do frame rate).
                 knockbackVelocity *= Mathf.Exp(-knockbackDamping * dt);

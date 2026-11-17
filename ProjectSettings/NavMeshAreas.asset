@@ -81,7 +81,7 @@ NavMeshProjectSettings:
     maxJumpAcrossDistance: 0
     minRegionArea: 2
     manualCellSize: 0
-    cellSize: 0.16666667
+    cellSize: 0.06
     manualTileSize: 0
     tileSize: 256
     buildHeightMesh: 0

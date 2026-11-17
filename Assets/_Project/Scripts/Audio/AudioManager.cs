@@ -42,7 +42,7 @@ namespace Poeirinha
 
         void Awake()
         {
-            AudioListener.volume = masterVolume;
+            AudioListener.volume = masterVolume * GameSettings.MasterVolume;
             AudioListener.pause = false;
 
             musicSource = CreateSource("Music", true);
@@ -85,8 +85,11 @@ namespace Poeirinha
             return src;
         }
 
+        void ApplyVolume() => AudioListener.volume = masterVolume * GameSettings.MasterVolume;
+
         void OnEnable()
         {
+            GameSettings.OnChanged += ApplyVolume;
             if (battery != null)
             {
                 battery.OnChargingChanged += HandleCharging;
@@ -99,7 +102,7 @@ namespace Poeirinha
                 cleaning.OnDirtCollected += HandleDirt;
                 cleaning.OnMilestone += HandleMilestone;
             }
-            if (cat != null) cat.OnMeow += HandleMeow;
+            if (cat != null) { cat.OnMeow += HandleMeow; cat.OnChaseChanged += HandleChase; }
             if (timer != null) timer.OnFinalCountdownStarted += HandleFinalCountdown;
             if (robot != null) robot.OnUnstickPress += HandleUnstick;
             if (robot != null) robot.OnStuckChanged += HandleStuck;
@@ -107,6 +110,7 @@ namespace Poeirinha
 
         void OnDisable()
         {
+            GameSettings.OnChanged -= ApplyVolume;
             if (battery != null)
             {
                 battery.OnChargingChanged -= HandleCharging;
@@ -119,7 +123,7 @@ namespace Poeirinha
                 cleaning.OnDirtCollected -= HandleDirt;
                 cleaning.OnMilestone -= HandleMilestone;
             }
-            if (cat != null) cat.OnMeow -= HandleMeow;
+            if (cat != null) { cat.OnMeow -= HandleMeow; cat.OnChaseChanged -= HandleChase; }
             if (timer != null) timer.OnFinalCountdownStarted -= HandleFinalCountdown;
             if (robot != null) robot.OnUnstickPress -= HandleUnstick;
             if (robot != null) robot.OnStuckChanged -= HandleStuck;
@@ -192,6 +196,7 @@ namespace Poeirinha
         void HandleEdge(bool edge) { edgeWarning = edge; edgeBeepTimer = 0f; }
         void HandleHit(float amount) => Play(bonk, 0.8f);
         void HandleMeow() => Play(meow, 1f);
+        void HandleChase(bool chasing) { if (chasing) Play(meow, 0.6f); }
         void HandleFinalCountdown() => Play(doorKeys, 1f);
         void HandleUnstick(int left) => Play(rip, 0.8f);
         void HandleStuck(bool stuck, int presses) { if (stuck) Play(beep, 0.6f); }

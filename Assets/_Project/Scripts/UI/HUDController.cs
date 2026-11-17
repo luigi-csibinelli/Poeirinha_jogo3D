@@ -18,6 +18,7 @@ namespace Poeirinha
         [SerializeField] LevelTimer timer;
         [SerializeField] CliffSensor cliffSensor;
         [SerializeField] RobotController robot;
+        [SerializeField] CatAI cat;
 
         [Header("Limpeza")]
         [SerializeField] RectTransform cleanFill;
@@ -140,6 +141,7 @@ namespace Poeirinha
             {
                 if (robot != null && robot.IsStuck) msg = $"Meia enroscada! Aperte <b>E</b> ({robot.PressesLeft})";
                 else if (cliffSensor != null && cliffSensor.EdgeDetected) msg = "<b>!</b>  Cuidado: escada!";
+                else if (cat != null && cat.IsChasing) msg = "O gato está atrás de você! Fuja ou esconda-se!";
                 else if (battery != null && battery.IsLow && !battery.IsCharging) msg = "Bateria fraca! Volte à base";
             }
 

@@ -10,6 +10,8 @@ namespace Poeirinha
         [SerializeField] GameObject howToPanel;
         [SerializeField] GameObject firstSelectedMain;
         [SerializeField] GameObject firstSelectedHowTo;
+        [SerializeField] OptionsMenu options;
+        [SerializeField] GameObject optionsButton;
 
         void Start()
         {
@@ -22,6 +24,7 @@ namespace Poeirinha
         public void OnPlayClicked() => SceneLoader.Load(SceneLoader.Level01);
         public void OnHowToClicked() => ShowPanel(howToPanel, firstSelectedHowTo);
         public void OnBackClicked() => ShowMain();
+        public void OnOptionsClicked() { if (options != null) options.Open(mainPanel, optionsButton); }
         public void OnQuitClicked() => SceneLoader.Quit();
 
         void ShowMain() => ShowPanel(mainPanel, firstSelectedMain);

@@ -340,8 +340,62 @@ namespace Poeirinha.EditorTools
             return btn;
         }
 
+        /// <summary>Slider no padrão do Unity (Background, Fill Area/Fill, Handle Slide Area/Handle).</summary>
+        public static Slider UISlider(string name, Transform parent, Vector2 pos, Vector2 size, Color fillColor, Color highlight, UnityAction<float> onChange)
+        {
+            RectTransform rt = UIRect(name, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size);
+            var slider = rt.gameObject.AddComponent<Slider>();
+
+            RectTransform bg = UIRect("Background", rt, new Vector2(0, 0.3f), new Vector2(1, 0.7f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            UIImage(bg, new Color(1, 1, 1, 0.15f));
+
+            RectTransform fillArea = UIRect("Fill Area", rt, new Vector2(0, 0.3f), new Vector2(1, 0.7f), new Vector2(0.5f, 0.5f), new Vector2(-5, 0), new Vector2(-20, 0));
+            RectTransform fill = UIRect("Fill", fillArea, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(10, 0));
+            UIImage(fill, fillColor);
+
+            RectTransform handleArea = UIRect("Handle Slide Area", rt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-20, 0));
+            RectTransform handle = UIRect("Handle", handleArea, Vector2.zero, new Vector2(0, 1), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(34, 0));
+            Image handleImg = UIImage(handle, Color.white, AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd"), false);
+            handleImg.raycastTarget = true;
+
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImg;
+            slider.direction = Slider.Direction.LeftToRight;
+            var colors = slider.colors;
+            colors.highlightedColor = highlight;
+            colors.selectedColor = highlight;
+            colors.pressedColor = highlight * 0.85f;
+            slider.colors = colors;
+            if (onChange != null) UnityEventTools.AddPersistentListener(slider.onValueChanged, onChange);
+            return slider;
+        }
+
+        /// <summary>Caixinha de marcar com texto ao lado.</summary>
+        public static Toggle UIToggle(string name, Transform parent, string label, Vector2 pos, Vector2 size, Color checkColor, Color highlight, UnityAction<bool> onChange)
+        {
+            RectTransform rt = UIRect(name, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size);
+            var toggle = rt.gameObject.AddComponent<Toggle>();
+            RectTransform box = UIRect("Background", rt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), Vector2.zero, new Vector2(46, 46));
+            Image boxImg = UIImage(box, new Color(1, 1, 1, 0.18f));
+            boxImg.raycastTarget = true;
+            RectTransform check = Stretch("Checkmark", box, 9);
+            Image checkImg = UIImage(check, checkColor);
+            RectTransform text = UIRect("Label", rt, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0, 0.5f), new Vector2(66, 0), new Vector2(-66, 0));
+            UIText(text, label, 30, Color.white, TextAlignmentOptions.Left);
+            toggle.targetGraphic = boxImg;
+            toggle.graphic = checkImg;
+            var colors = toggle.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = highlight;
+            colors.selectedColor = highlight;
+            toggle.colors = colors;
+            if (onChange != null) UnityEventTools.AddPersistentListener(toggle.onValueChanged, onChange);
+            return toggle;
+        }
+
         /// <summary>Liga a navegação vertical por teclado entre botões (cima/baixo).</summary>
-        public static void ChainVertical(params Button[] buttons)
+        public static void ChainVertical(params Selectable[] buttons)
         {
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -355,7 +409,7 @@ namespace Poeirinha.EditorTools
             }
         }
 
-        public static void ChainHorizontal(params Button[] buttons)
+        public static void ChainHorizontal(params Selectable[] buttons)
         {
             for (int i = 0; i < buttons.Length; i++)
             {

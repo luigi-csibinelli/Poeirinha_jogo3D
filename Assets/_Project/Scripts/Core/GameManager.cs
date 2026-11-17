@@ -140,10 +140,11 @@ namespace Poeirinha
             // (a câmera ainda acompanha a queda da escada, por exemplo).
             Time.timeScale = newState == GameState.Paused ? 0f : 1f;
 
-            // Cursor só aparece quando há botões para clicar.
-            bool showCursor = newState != GameState.Playing;
-            Cursor.visible = showCursor;
-            Cursor.lockState = CursorLockMode.None;
+            // Jogando: cursor preso e escondido (o mouse gira a câmera).
+            // Pausa/fim: cursor livre para clicar nos botões.
+            bool playing = newState == GameState.Playing;
+            Cursor.visible = !playing;
+            Cursor.lockState = playing ? CursorLockMode.Locked : CursorLockMode.None;
 
             OnStateChanged?.Invoke(newState);
         }

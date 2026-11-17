@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -28,9 +29,19 @@ namespace Poeirinha.Tests
         // Um ponto aberto da sala, longe de móveis, do gato e da base.
         static readonly Vector3 OpenSpot = new Vector3(5.6f, 0.005f, 1.2f);
 
+        float savedTurn, savedMouse;
+        bool savedRecenter;
+
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            // Os testes usam as opções padrão; as do jogador são devolvidas no TearDown.
+            savedTurn = GameSettings.TurnSensitivity;
+            savedMouse = GameSettings.MouseSensitivity;
+            savedRecenter = GameSettings.AutoRecenter;
+            GameSettings.TurnSensitivity = 1f;
+            GameSettings.MouseSensitivity = 1f;
+            GameSettings.AutoRecenter = true;
             SceneManager.LoadScene(SceneLoader.Level01);
             yield return null;
             yield return null;
@@ -54,6 +65,9 @@ namespace Poeirinha.Tests
         {
             Time.timeScale = 1f;
             AudioListener.pause = false;
+            GameSettings.TurnSensitivity = savedTurn;
+            GameSettings.MouseSensitivity = savedMouse;
+            GameSettings.AutoRecenter = savedRecenter;
         }
 
         /// <summary>Tira o gato do caminho para não interferir nos testes de física.</summary>
@@ -86,14 +100,14 @@ namespace Poeirinha.Tests
             robot.SetExternalInput(1f, 0f);
             yield return new WaitForSeconds(1.0f);
             float moved = robot.transform.position.x - start.x;
-            Assert.That(moved, Is.GreaterThan(1.2f), "anda ~2 m/s com aceleração suave");
-            Assert.That(moved, Is.LessThan(2.1f), "aceleração não é instantânea");
+            Assert.That(moved, Is.GreaterThan(0.85f), "anda ~1.3 m/s com aceleração suave");
+            Assert.That(moved, Is.LessThan(1.35f), "aceleração não é instantânea");
 
             robot.SetExternalInput(0f, 1f);
             float yaw0 = robot.transform.eulerAngles.y;
             yield return new WaitForSeconds(0.5f);
             float turned = Mathf.Abs(Mathf.DeltaAngle(yaw0, robot.transform.eulerAngles.y));
-            Assert.That(turned, Is.InRange(50f, 100f), "gira ~180°/s");
+            Assert.That(turned, Is.InRange(30f, 75f), "gira ~120°/s com sensibilidade 1.0");
 
             robot.ClearExternalInput();
             yield return new WaitForSeconds(0.5f);
@@ -277,7 +291,7 @@ namespace Poeirinha.Tests
             // Robô na frente do sofá, de frente para ele: anda para baixo do sofá.
             robot.Teleport(new Vector3(3.0f, 0.005f, 2.2f), 0f);
             cam.GetComponent<CameraFollow>().SnapToTarget();
-            robot.SetExternalInput(0.5f, 0f);
+            robot.SetExternalInput(0.6f, 0f);
             yield return new WaitForSeconds(1.2f);
             robot.ClearExternalInput();
             Assert.That(robot.transform.position.z, Is.GreaterThan(2.7f), "o robô entrou embaixo do sofá");
@@ -350,6 +364,113 @@ namespace Poeirinha.Tests
             Bind();
             Assert.AreEqual(GameState.Playing, gm.State);
         }
+
+        [Test]
+        public void T22_NavMeshCoversAllRooms()
+        {
+            Vector3[] points =
+            {
+                new Vector3(6.5f, 0, 3.2f), new Vector3(6.5f, 0, 1.2f), new Vector3(1.1f, 0, 2.8f), // sala
+                new Vector3(4.3f, 0, 5.3f), new Vector3(1.4f, 0, 5.1f),                            // quarto
+                new Vector3(6.2f, 0, 5.2f), new Vector3(9.0f, 0, 5.0f),                            // cozinha
+            };
+            foreach (Vector3 p in points)
+            {
+                bool found = NavMesh.SamplePosition(p, out NavMeshHit hit, 0.3f, NavMesh.AllAreas);
+                Assert.IsTrue(found, $"sem NavMesh perto de {p}");
+                Assert.That(Vector3.Distance(Flat(hit.position), Flat(p)), Is.LessThan(0.15f), $"NavMesh longe de {p}");
+                Assert.That(hit.position.y, Is.InRange(-0.05f, 0.1f), $"NavMesh no chão em {p}");
+            }
+            // Embaixo do sofá e da cama não tem NavMesh: é ali que o robô se esconde.
+            Assert.IsFalse(NavMesh.SamplePosition(new Vector3(3.0f, 0, 3.05f), out _, 0.2f, NavMesh.AllAreas), "gato não entra embaixo do sofá");
+        }
+
+        void PlaceCat(Vector3 pos)
+        {
+            cat.gameObject.SetActive(true);
+            bool ok = cat.GetComponent<NavMeshAgent>().Warp(pos);
+            Assert.IsTrue(ok, $"Warp do gato para {pos} falhou");
+        }
+
+        [UnityTest]
+        public IEnumerator T18_CatChasesRobotItSees()
+        {
+            robot.Teleport(new Vector3(6.5f, 0.005f, 1.2f), 0f);
+            PlaceCat(new Vector3(6.5f, 0f, 3.2f));
+            float charge = battery.Charge;
+            yield return new WaitForSeconds(0.4f);
+            Assert.IsTrue(cat.IsChasing, "gato viu o robô a 2 m e começou a perseguir");
+            yield return new WaitForSeconds(3f);
+            Assert.That(charge - battery.Charge, Is.GreaterThan(8f), "o gato alcançou o robô parado e tirou bateria");
+            Assert.IsFalse(cat.IsChasing, "depois de acertar ele desiste por um tempo");
+        }
+
+        [UnityTest]
+        public IEnumerator T19_HidingUnderSofaMakesCatGiveUp()
+        {
+            // Visível na frente do sofá: o gato percebe.
+            robot.Teleport(new Vector3(3.0f, 0.005f, 2.3f), 0f);
+            PlaceCat(new Vector3(5.2f, 0f, 2.2f));
+            yield return new WaitForSeconds(0.3f);
+            Assert.IsTrue(cat.IsChasing);
+            // Entra embaixo do sofá: o gato não cabe ali e perde o interesse.
+            robot.Teleport(new Vector3(3.0f, 0.005f, 3.05f), 0f);
+            yield return new WaitForSeconds(0.5f);
+            Assert.IsTrue(cat.IsRobotHidden(), "embaixo do sofá conta como escondido");
+            Assert.IsFalse(cat.IsChasing, "gato desistiu");
+
+            // Já escondido desde o começo: nem percebe.
+            yield return new WaitForSeconds(5.5f); // passa o tempo de espera da perseguição
+            PlaceCat(new Vector3(4.6f, 0f, 2.2f));
+            yield return new WaitForSeconds(1f);
+            Assert.IsFalse(cat.IsChasing, "não persegue robô escondido");
+        }
+
+        [UnityTest]
+        public IEnumerator T20_TurnSensitivityOption()
+        {
+            ParkCat();
+            float Measure(float yaw0) => Mathf.Abs(Mathf.DeltaAngle(yaw0, robot.transform.eulerAngles.y));
+
+            GameSettings.TurnSensitivity = 0.5f;
+            robot.Teleport(OpenSpot, 0f);
+            robot.SetExternalInput(0f, 1f);
+            yield return new WaitForSeconds(0.6f);
+            float slow = Measure(0f);
+
+            GameSettings.TurnSensitivity = 1.5f;
+            robot.Teleport(OpenSpot, 0f);
+            yield return new WaitForSeconds(0.6f);
+            float fast = Measure(0f);
+            robot.ClearExternalInput();
+
+            Assert.That(fast, Is.GreaterThan(slow * 2.2f), $"sensibilidade muda o giro (lento {slow:0}°, rápido {fast:0}°)");
+        }
+
+        [UnityTest]
+        public IEnumerator T21_MouseOrbitsCameraAroundRobot()
+        {
+            ParkCat();
+            robot.Teleport(new Vector3(6.0f, 0.005f, 1.0f), 0f);
+            var follow = cam.GetComponent<CameraFollow>();
+            follow.SnapToTarget();
+            yield return new WaitForSeconds(0.3f);
+            Vector3 before = Flat(cam.transform.position - robot.transform.position);
+
+            follow.AddMouseInput(new Vector2(600f, 0f)); // ~72° com sensibilidade 1
+            yield return new WaitForSeconds(0.6f);
+            Vector3 after = Flat(cam.transform.position - robot.transform.position);
+            Assert.That(Vector3.Angle(before, after), Is.GreaterThan(45f), "a câmera girou em volta do robô");
+            Assert.That(Mathf.Abs(follow.YawOffset), Is.GreaterThan(45f), "robô parado: não recentra");
+
+            // Robô andando + mouse parado: volta para trás do robô.
+            robot.SetExternalInput(0.4f, 0f);
+            yield return new WaitForSeconds(3.5f);
+            robot.ClearExternalInput();
+            Assert.That(Mathf.Abs(follow.YawOffset), Is.LessThan(10f), "recentrou sozinha");
+        }
+
+        static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
 
         [UnityTest]
         public IEnumerator T17_CatPatrols()

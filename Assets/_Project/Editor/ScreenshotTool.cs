@@ -46,7 +46,32 @@ namespace Poeirinha.EditorTools
 
             EditorSceneManager.OpenScene(PoeirinhaBuilder.MenuScenePath);
             Render(Camera.main, "07_menu");
+            RenderWithUI("08_menu_ui", null);
+            RenderWithUI("09_opcoes", "OptionsMenu/Panel");
             Debug.Log("[Poeirinha] Screenshots salvos em " + Path.GetFullPath("Screenshots"));
+        }
+
+        /// <summary>Renderiza também a UI (troca o Canvas para Screen Space - Camera só para o print).</summary>
+        static void RenderWithUI(string name, string panelToShow)
+        {
+            var cam = Camera.main;
+            var canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            if (panelToShow != null)
+            {
+                Transform t = canvas.transform.Find(panelToShow);
+                if (t != null)
+                {
+                    t.gameObject.SetActive(true);
+                    var main = canvas.transform.Find("MainMenu/MainPanel");
+                    if (main != null) main.gameObject.SetActive(false);
+                }
+            }
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 0.3f;
+            Canvas.ForceUpdateCanvases();
+            foreach (var tmp in canvas.GetComponentsInChildren<TMPro.TMP_Text>(true)) tmp.ForceMeshUpdate();
+            Render(cam, name);
         }
 
         static void Render(Camera cam, string name)
