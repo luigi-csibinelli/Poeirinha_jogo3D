@@ -1,383 +1,348 @@
-# Poeirinha — GDD / Especificação Técnica
+# Poeirinha — Game Design Document
 
-> Jogo 3D hiper-casual feito em Unity para o Projeto 3D (Insper, 2026.2).
-> **Entrega:** 25/11/2026 — Build Windows + GitHub + itch.io (jam da disciplina).
-> Este documento é o GDD vivo do projeto **e** a especificação que o Claude Code segue para implementar.
+> Jogo 3D hiper-casual feito em Unity para o **Projeto 3D – Hiper-Casual** (Insper, 2026.2).
+> **Entrega:** 25/11/2026 — Build Windows + repositório GitHub + página na [jam do itch.io](https://itch.io/jam/projeto-jogo-3d-insper-20262).
+> Este é um **documento vivo**: tudo que mudou ao longo do desenvolvimento está registrado na seção 14.
 
----
-
-## 0. Pitch
-
-Você é um **robô aspirador** e precisa deixar a casa limpa **antes do dono voltar**.
-A bateria acaba, o gato atrapalha e a escada é fatal. Limpe embaixo do sofá, volte à base para recarregar e não caia da escada.
-
-- **Gênero:** hiper-casual 3D, arcade de tempo
-- **Plataforma:** Windows (teclado)
-- **Duração de uma partida:** ~3 minutos
-- **Escopo:** 1 fase bem acabada (apartamento), dificuldade fixa
-
----
-
-## 1. Escopo e restrições
-
-| Item | Decisão |
+| | |
 |---|---|
-| Engine | **Unity 6.3 LTS (6000.3.25f1)**, template **3D (URP)** |
-| Input | **Input System** novo (padrão no Unity 6). Se o projeto estiver no Input Manager antigo, adaptar |
-| Escala | **1 unidade = 1 metro** (normalizar todos os assets importados) |
-| Cenas | `MainMenu` e `Level01` |
-| Fases | 1 |
-| Assets | Somente gratuitos (CC0/CC-BY), com créditos no README |
+| **Gênero** | Arcade de tempo, hiper-casual 3D |
+| **Plataforma** | Windows (teclado + mouse) |
+| **Engine** | Unity 6.3 LTS (6000.3.25f1), URP, Input System, AI Navigation |
+| **Duração de uma partida** | até 3 minutos |
+| **Escopo** | 1 fase (apartamento) bem acabada, dificuldade fixa |
+| **Equipe** | _(preencher com os nomes dos integrantes)_ |
 
-### Fora do escopo (não implementar)
-Multiplayer, várias fases, save de progresso, upgrades do robô, mobile/controle, cutscenes.
+![Vista geral do apartamento](Docs/Screenshots/00_vista_geral.png)
+
+---
+
+## 1. Conceito
+
+Você é a **Poeirinha**, um **robô aspirador**, e precisa deixar o apartamento limpo **antes do dono voltar**.
+A bateria acaba, o **gato** corre atrás de você e a **escada não tem grade**. Aspire a sujeira (inclusive a que está
+escondida **embaixo dos móveis**), volte à base para recarregar e não caia da escada.
+
+**A graça do jogo é a escala:** o robô tem 9 cm de altura e os móveis são gigantes. Passar por baixo do sofá, da cama
+e das mesas é ao mesmo tempo a forma de achar sujeira escondida e de fugir do gato. É aí que o 3D vira mecânica.
+
+### Pilares
+1. **Gerenciar a bateria.** Ela é o relógio de verdade: é preciso planejar as voltas até a base.
+2. **Usar o espaço 3D.** Passar por baixo dos móveis para limpar e para se esconder.
+3. **Risco × recompensa.** Há sujeira perto da borda da escada, e o turbo é rápido mas gasta o dobro.
 
 ---
 
 ## 2. Ciclo principal
 
 ```
-Aspirar sujeira → bateria cai → voltar à base → recarregar → aspirar o resto → VITÓRIA
-                          ↘ bateria zera fora da base / cai da escada / tempo acaba → DERROTA
+Aspirar sujeira → bateria cai → voltar à base → recarregar → aspirar o resto → VITÓRIA (90% limpo)
+       ↑                ↘ o gato vê você → fugir no turbo ou se esconder embaixo de um móvel
+       └──────────────── ↘ bateria zera fora da base / cai da escada / tempo acaba → DERROTA
 ```
+
+Uma carga cheia dura ~66 s andando. Em 3 minutos o jogador volta à base **2 ou 3 vezes**: essa é a tensão do jogo.
 
 ---
 
 ## 3. Controles
 
-| Tecla | Ação |
+| Entrada | Ação |
 |---|---|
-| **W / S** (ou ↑ / ↓) | Andar para frente / ré |
-| **A / D** (ou ← / →) | Girar no próprio eixo |
+| **W / S** ou **↑ / ↓** | Andar para frente / ré |
+| **A / D** ou **← / →** | Girar no próprio eixo |
 | **Shift esquerdo** (segurar) | **Turbo**: +60% de velocidade, gasta 2× bateria |
-| **E** (apertar repetidas vezes) | Soltar-se de uma meia enroscada *(extra)* |
-| **Mouse** (mover) / **roda** | Girar a câmera em volta do robô / zoom |
+| **Mouse** | Girar a câmera em volta do robô |
+| **Roda do mouse** | Zoom da câmera |
+| **E** (várias vezes) | Soltar-se de uma meia enroscada |
 | **Esc** | Pausar / despausar |
 
-- Controle em **"tanque"**: frente e ré relativas ao robô, não à câmera. Combina com o tema e evita confusão de câmera.
-- Aceleração e desaceleração suaves (sem parar ou arrancar seco), para o movimento parecer de um robô de verdade.
+- **Controle "tanque":** frente e ré são relativas ao robô, não à câmera. Combina com o tema (é assim que um robô
+  aspirador anda) e evita confusão quando o jogador gira a câmera com o mouse.
+- **Aceleração suave** (4 m/s²) e frenagem um pouco mais forte (6 m/s²): o robô não arranca nem para seco.
+- Menus navegáveis por **teclado** (setas + Enter) e por **mouse**.
+- Sensibilidade do giro e do mouse ajustáveis na tela de **Opções** (seção 9).
 
 ---
 
 ## 4. Câmera
 
-**Terceira pessoa, atrás e acima do robô.** O robô é pequeno e os móveis são enormes: essa escala é a principal fonte de "sensação 3D".
+Câmera em **terceira pessoa, atrás e acima do robô**, baixa o bastante para os móveis parecerem enormes.
 
-| Parâmetro | Valor inicial (ajustável no Inspector) |
+| Parâmetro | Valor |
 |---|---|
-| Offset relativo ao robô | `(0, 1.0, -1.3)` |
-| Ponto de mira | Robô + `0.5 m` à frente dele |
-| Suavização de posição | `SmoothDamp`, ~0.15 s |
-| Suavização de rotação | `Slerp`, acompanha a rotação do robô com leve atraso |
+| Posição padrão | 1,64 m de distância, inclinada 37,5° para baixo (≈ 1,0 m acima e 1,3 m atrás) |
+| Ponto de mira | robô + 0,5 m à frente |
+| Suavização | `SmoothDamp` (0,15 s) na posição; o giro acompanha o robô com leve atraso |
+| Mouse | gira em volta do robô (horizontal e vertical, 8°–70°); roda = zoom (0,8–2,6 m) |
+| Recentralizar | se ligado nas Opções, volta para trás do robô 1,5 s depois de o mouse parar, quando o robô está andando |
 
-### Requisitos
-1. **A câmera nunca atravessa paredes:** usar `SphereCast` do robô até a posição desejada da câmera. Se bater em algo, aproximar a câmera.
-2. **Oclusão:** móveis entre a câmera e o robô (ex.: o robô embaixo do sofá) ficam **semitransparentes** (alpha ~0.3) e voltam ao normal quando deixam de bloquear.
-   - No URP, isso exige trocar para um material transparente (ou usar um material com alpha controlado por script).
-   - Marcar os móveis que podem sumir com uma layer `Occluder`.
-3. Sem tremedeira: a câmera atualiza em `LateUpdate` e o Rigidbody do robô usa **Interpolate**.
+**Garantias:**
+1. **Nunca atravessa paredes:** um `SphereCast` do robô até a câmera aproxima a câmera quando bate numa parede ou
+   num móvel alto (layer `Wall`).
+2. **Oclusão:** sofá, cama, mesas e cadeiras (layer `Occluder`) ficam **semitransparentes (30%)** quando ficam entre
+   a câmera e o robô, por exemplo com o robô embaixo do sofá.
+3. **Sem tremedeira:** a câmera atualiza em `LateUpdate` e o Rigidbody do robô usa `Interpolate`.
 
 ---
 
-## 5. Robô (jogador)
+## 5. O robô (jogador)
 
-### Dimensões e física
 | Item | Valor |
 |---|---|
-| Diâmetro / altura | `0.35 m` / `0.09 m` |
-| Collider | **SphereCollider** ou **CapsuleCollider** deitado (formato redondo **escorrega nas quinas em vez de prender**) |
-| Rigidbody | Massa 2, **Interpolate**, Collision Detection **Continuous**, **congelar rotação X e Z** |
-| Physics Material | Atrito **0** (dinâmico e estático), Friction Combine = **Minimum** |
-| Movimento | Em `FixedUpdate`, via `Rigidbody.linearVelocity` (Unity 6) ou `MovePosition` + `MoveRotation` |
-| Velocidade | `1.3 m/s` (turbo: `2.1 m/s`) |
-| Giro | `120°/s` × sensibilidade (Opções, 0.4–1.6) |
+| Tamanho | 0,35 m de diâmetro × 0,09 m de altura (escala real: 1 unidade = 1 m) |
+| Velocidade | 1,3 m/s (turbo: 2,1 m/s) |
+| Giro | 120°/s × sensibilidade (0,4–1,6) |
+| Collider | cilindro convexo (`MeshCollider`) com atrito zero: desliza nas quinas em vez de prender |
+| Rigidbody | massa 2, `Interpolate`, colisão `Continuous`, rotação X/Z congelada (não tomba) |
 
-### Visual
-- Pode ser feito com **primitivas do Unity**: cilindro achatado + "para-choque" + LED.
-- **LED colorido** no topo indica a bateria (verde → amarelo → vermelho piscando).
-- Escovas laterais girando (rotação simples via script).
+- **LED de bateria** no topo: verde → amarelo → **vermelho piscando** (fraca) → **azul** (carregando).
+- **Escovas laterais** girando, mais rápido quando o robô anda.
+- **Sensor de borda (cliff sensor):** um raio para baixo, 0,25 m à frente do robô. Sem chão a menos de 0,2 m →
+  **bip + aviso "Cuidado: escada!"**. O sensor só avisa e **não freia**: evitar a queda é responsabilidade do jogador.
 
-### Sensor de queda (cliff sensor)
-- `Raycast` para baixo a partir de um ponto **0.25 m à frente** do robô.
-- Se não houver chão a menos de `0.2 m` → **bip de alerta + ícone no HUD**.
-- O sensor **não freia** o robô sozinho: evitar a queda é responsabilidade do jogador.
-
----
-
-## 6. Bateria
-
-| Evento | Efeito |
+### Bateria
+| Situação | Efeito |
 |---|---|
-| Andando | −1.5 / s |
-| Parado | −0.5 / s |
+| Andando | −1,5 por segundo |
+| Parado | −0,5 por segundo |
 | Turbo | consumo ×2 |
-| Encostar no gato | −10 instantâneo |
-| Dentro da base de recarga | +25 / s (até 100) |
+| Ser pego pelo gato | −10 instantâneo (com 1 s de invulnerabilidade) |
+| Na base de recarga | +25 por segundo (até 100) |
 
-- Começa com **100**.
-- **Abaixo de 25%:** barra vermelha, LED piscando e bip a cada 2 s.
-- **Chegou a 0 fora da base → DERROTA** ("A bateria acabou!").
-- Na prática, uma carga cheia dura ~66 s andando. Em 3 minutos, o jogador precisa voltar à base 2 ou 3 vezes: essa é a tensão do jogo.
+Começa em 100. **Abaixo de 25%** a barra fica vermelha, o LED pisca, toca um bip a cada 2 s e aparece
+"Bateria fraca! Volte à base". **Chegou a 0 fora da base = derrota.**
 
-### Base de recarga (`ChargingDock`)
-- Objeto no chão com um trigger. Enquanto o robô estiver dentro, recarrega.
-- Feedback: som de "plug", LED azul e partícula leve.
-- Fica num ponto **central** da casa, para que todo cômodo seja alcançável com uma carga.
+A **base de recarga** fica num ponto central (na parede entre a sala e o quarto), para que todo cômodo seja alcançável
+com uma carga. Ao entrar nela: som de "plug", LED azul, luz e partículas.
 
 ---
 
-## 7. Sujeira e limpeza
+## 6. Sujeira e limpeza
 
-- Prefab `DirtSpot`: decal ou quad no chão com textura de poeira + **trigger**.
-- Quando o robô encosta: fade-out rápido (0.2 s), partícula de poeira, som de "sucção" e o objeto é desativado.
-- **~60 manchas** na fase, sendo **~15 embaixo de móveis** (sofá, cama, mesa). Embaixo dos móveis é onde o 3D vira mecânica.
-- **`CleaningManager`** conta o total no início da fase (manchas registradas) e as coletadas.
-- **Vitória: 90% limpo** (ex.: 54 de 60).
-- Ao passar de 50% e de 75%: pequeno feedback no HUD ("Metade!").
-
----
-
-## 8. Fase: `Level01` (apartamento)
-
-### Layout (vista de cima, aproximado)
-```
-┌─────────────┬──────────────┐
-│   QUARTO    │   COZINHA    │
-│  (cama)     │ (mesa+cadeiras)
-│             │              │
-├──── porta ──┼──── vão ─────┤
-│        SALA                │
-│  (sofá, rack, tapete)      │
-│     [BASE de recarga]      │
-│                    ┌───────┤
-│                    │ESCADA ↓│  ← sem grade, descendo para o andar de baixo
-└────────────────────┴───────┘
-```
-
-- Área total ~ **10 × 8 m**, chão plano, exceto a escada.
-- **Móveis com vão** por onde o robô passa: sofá (vão de 0.12 m), cama (vão de 0.15 m), mesa e cadeiras (passa entre os pés).
-- **Escada:** degraus descendo. Um trigger `FallZone` abaixo da borda superior aciona a derrota ("Caiu da escada!"). A câmera pode acompanhar a queda por 0.5 s antes da tela de derrota.
-- Paredes com colliders simples (BoxCollider), **sem frestas**. Rodapés não devem criar degraus invisíveis.
+- **60 manchas** (poeira e migalhas), **15 delas embaixo de móveis**: sofá (5), cama (5), mesa de centro (2),
+  mesa de jantar (2) e escrivaninha (1).
+- Ao encostar, a mancha some em 0,2 s, com partículas de poeira e som de sucção.
+- **Vitória: 90% limpo** (54 de 60). Mensagens no HUD em 50% ("Metade!") e 75% ("Quase lá!").
+- Duas manchas ficam **perto da borda da escada** (risco × recompensa).
+- O posicionamento é sorteado por uma ferramenta de Editor que **garante que o robô cabe** em cada ponto
+  (há um teste automático que confere isso).
 
 ---
 
-## 9. Obstáculos
+## 7. Obstáculos
 
-### Gato (obrigatório)
-- **NavMeshAgent** (pacote AI Navigation) patrulhando entre 4–6 waypoints, com velocidade `1.2 m/s` e pausa de 1–3 s em cada ponto (às vezes "deita e dorme" por 5 s).
-- **Perseguição:** se o gato **vê** o robô (a menos de 3.2 m, sem parede no meio), para por 0.6 s ("!" sobre a cabeça) e corre atrás dele a `1.6 m/s` — mais rápido que o robô andando, mais lento que o turbo. Desiste se o robô se esconder, se afastar mais de 5 m, após 8 s ou depois de acertar (5 s sem perseguir).
-- **Esconderijos:** embaixo do **sofá** e da **cama** o gato não cabe (a NavMesh dele não passa ali). Robô escondido não é visto.
-- **Encostar no gato:** o robô leva um empurrão (`AddForce` com impulso para longe do gato), −10 de bateria, miado e 1 s de invulnerabilidade, para não perder bateria em sequência.
-- Colliders do gato: trigger para detectar contato + collider sólido simples (o robô não atravessa o gato).
+### Gato
+- **Patrulha** 7 pontos pela casa usando **NavMesh** (1,0 m/s), com pausas de 1–3 s; às vezes **deita e dorme** por 5 s ("zZ").
+- **Perseguição:** se **vê** o robô (a menos de 3,2 m e sem parede no meio), para por 0,6 s com um **"!"** sobre a
+  cabeça, mia e **corre atrás** dele a **1,6 m/s**: mais rápido que o robô andando e mais lento que o turbo.
+- **Como escapar:**
+  - fugir no **turbo**;
+  - **se esconder embaixo do sofá ou da cama**: o gato não cabe ali (a NavMesh dele não passa por baixo) e **desiste**;
+  - se afastar mais de 5 m. Depois de 8 s de perseguição ele também cansa.
+- **Se pegar o robô:** empurra o robô para longe, tira **10 de bateria** e se dá por satisfeito (5 s sem perseguir).
+- O gato dormindo não persegue ninguém.
 
-### Meia no chão (extra)
-- Trigger. Ao entrar, o robô fica **preso** (velocidade 0) até o jogador apertar **E 5 vezes**. Ícone de "aperte E" no HUD.
-- 2 ou 3 meias espalhadas, longe da base.
+### Meias (extra)
+Três meias espalhadas pela casa, longe da base. Passar por cima **prende o robô** até o jogador apertar **E cinco
+vezes**; o HUD mostra quantos apertos faltam. Depois de solto, a mesma meia não prende de novo até o robô sair dela.
+
+### Escada
+Escada **sem grade** no canto da sala, com uma faixa amarela no chão marcando a borda. Cair um degrau já é derrota:
+a câmera acompanha a queda por ~1 s antes da tela de fim.
 
 ---
 
-## 10. Estados do jogo (critério 4)
+## 8. Fase: o apartamento (`Level01`)
 
 ```
-MainMenu → Playing ⇄ Paused
-              ↓
-     Victory / Defeat → (Tentar de novo → Playing) | (Menu → MainMenu)
+┌──────────────┬───────────────┐
+│   QUARTO     │    COZINHA    │
+│ cama, guarda-│ bancada, gela-│
+│ roupa, escri-│ deira, mesa + │
+│ vaninha      │ 4 cadeiras    │
+├─── porta ────┴──── vão ──────┤
+│            SALA     [BASE]   │
+│ estante, sofá, mesa de       │
+│ centro, rack + TV, abajur    │
+│                      ┌───────┤
+│                      │ESCADA↓│  ← sem grade
+└──────────────────────┴───────┘
+              10 m × 8 m
 ```
 
-### Regras de robustez
-- `GameManager` com `enum GameState { Playing, Paused, Victory, Defeat }` e evento `OnStateChanged`.
-- **Toda condição de fim só vale se o estado atual for `Playing`.** Isso evita vitória e derrota simultâneas ou disparos duplos.
-- **Pausa** usa `Time.timeScale = 0`. Ao carregar qualquer cena, **sempre** voltar `Time.timeScale = 1`.
-- **Reiniciar** = recarregar a cena `Level01` com `SceneManager.LoadScene`. Nada de "resetar na mão".
-- Derrota sempre mostra **o motivo**: `BatteryEmpty`, `FellDownStairs` ou `TimeUp`.
-- Ao vencer ou perder: robô e gato param, o input de movimento é ignorado e o cursor fica visível.
-- **Timer:** 3:00. Nos últimos 30 s, ele fica vermelho e toca um som de porta/chave ("o dono está chegando").
-- Botão **Sair** chama `Application.Quit()` (funciona na build).
+| Móvel | Vão embaixo | O robô passa? | O gato passa? |
+|---|---|---|---|
+| Sofá | 0,12 m | ✅ | ❌ (esconderijo) |
+| Cama | 0,15 m | ✅ | ❌ (esconderijo) |
+| Mesa de centro | 0,36 m | ✅ | ✅ |
+| Mesa de jantar / cadeiras | 0,73 m / entre os pés | ✅ | ✅ |
+| Escrivaninha | 0,71 m | ✅ | ✅ |
+| Rack, estante, guarda-roupa, bancada, geladeira | — | ❌ (sólidos) | ❌ |
+
+- Paredes com colliders simples e **sem frestas**; chão com um único collider (sem emendas que prendam o robô).
+- Tapetes e a placa da base **não têm collider**: um degrau de milímetros já travaria o robô.
 
 ---
 
-## 11. Interface
+## 9. Estados do jogo e telas
 
-### HUD (durante o jogo)
-- **Topo-esquerda:** % de limpeza (barra + número).
-- **Topo-direita:** timer `mm:ss`.
-- **Base-esquerda:** barra de bateria com ícone.
-- **Centro (contextual):** alerta de borda (cliff), "aperte E" e "Bateria fraca!".
+```
+MainMenu ──Jogar──▶ Playing ⇄ Paused (Esc)
+   ▲                  │
+   │                  ├─▶ Victory (90% limpo)
+   │                  └─▶ Defeat (bateria / escada / tempo)
+   └──── Menu ◀───────┘        └─ Jogar de novo / Tentar de novo → recarrega Level01
+```
+
+### Robustez (critério 4)
+- Um único `GameManager` com `enum GameState { Playing, Paused, Victory, Defeat }` e o evento `OnStateChanged`.
+- **Toda condição de fim só vale se o estado for `Playing`:** é impossível ganhar e perder no mesmo frame ou
+  disparar o fim duas vezes.
+- **Pausa** = `Time.timeScale = 0`. Qualquer troca de cena volta `timeScale` para 1, então nunca se começa "congelado".
+- **Reiniciar** = recarregar a cena (nada de "resetar na mão").
+- A derrota sempre mostra **o motivo**: "A bateria acabou!", "Caiu da escada!" ou "O dono chegou e a casa ainda está suja!".
+- No fim, o robô e o gato param, o input é ignorado e o cursor volta.
+- **Sem dead ends:** a base é alcançável de qualquer lugar; a meia sempre solta com E; o gato desiste sozinho;
+  o tempo sempre termina a partida.
 
 ### Telas
 | Tela | Conteúdo |
 |---|---|
-| **Menu principal** | Título, **Jogar**, **Como jogar** (painel com os controles), **Opções**, **Sair** |
+| **Menu principal** | Título, **Jogar**, **Como jogar**, **Opções**, **Sair** |
+| **Como jogar** | Objetivo, controles, base, escada, gato, esconderijos |
+| **Opções** (menu e pausa) | Sensibilidade do giro (A/D), sensibilidade do mouse, volume, inverter eixo Y do mouse, recentralizar câmera, botão **Padrão**. Salvo entre partidas (`PlayerPrefs`) |
+| **HUD** | Topo-esquerda: % limpo (com marca da meta de 90%). Topo-direita: "O dono volta em" (timer). Base-esquerda: bateria. Centro: avisos (meia, escada, gato, bateria fraca) e mensagens rápidas |
 | **Pausa** | **Continuar**, **Opções**, **Reiniciar**, **Menu** |
-| **Opções** (menu e pausa) | Sensibilidade do giro, sensibilidade do mouse, volume, inverter Y, recentrar câmera, Padrão. Salvo em PlayerPrefs |
-| **Vitória** | "Casa limpa!", tempo restante, **estrelas** (3★ se sobrou >60 s, 2★ >30 s, 1★ caso contrário), **Jogar de novo**, **Menu** |
-| **Derrota** | Motivo da derrota, % que chegou a limpar, **Tentar de novo**, **Menu** |
+| **Vitória** | "Casa limpa!", tempo restante, % limpo, **estrelas** (3★ se sobrou mais de 60 s, 2★ mais de 30 s, 1★ caso contrário), **Jogar de novo**, **Menu** |
+| **Derrota** | Motivo, % que chegou a limpar, **Tentar de novo**, **Menu** |
 
-- Navegação também por teclado (botão selecionado por padrão), não só pelo mouse.
-- Fonte legível e consistente (TextMeshPro).
+O timer fica **vermelho nos últimos 30 s**, quando toca um som de chaves e porta ("O dono está chegando!").
+
+![Menu principal](Docs/Screenshots/08_menu_ui.png)
 
 ---
 
-## 12. Áudio
+## 10. Arte e áudio
+
+### Visual (critério 3)
+- **Low-poly com cores suaves**, todo em **escala real** (1 unidade = 1 m).
+- Modelos feitos com **primitivas do Unity** combinadas (robô, gato, móveis).
+- **Texturas geradas por código** (madeira em tábuas, azulejo, tapete, poeira, migalhas) e **materiais URP Lit**
+  configurados (madeira fosca, metal brilhante, LEDs e janelas com emissão).
+- **Iluminação:** uma luz direcional (sol) com **sombras suaves**, mais abajur, luminária da cozinha, abajur do quarto
+  e a luz da base. A **sombra do robô** ajuda a perceber profundidade.
+- **Pós-processamento:** tonemapping, bloom leve nos LEDs e vinheta.
+
+### Áudio
+Todos os sons são **sintetizados por código** (`ProceduralAudio.cs`): nenhum arquivo de terceiros.
 
 | Som | Quando |
 |---|---|
-| Motor (loop) | Sempre que o robô anda; o **pitch acompanha a velocidade** |
-| Sucção / "pop" | Ao coletar sujeira |
-| Bip | Bateria fraca e alerta de borda |
-| Plug / recarga | Ao entrar na base |
-| Miado | Ao encostar no gato |
+| Motor (loop) | Sempre; o **pitch acompanha a velocidade** |
+| Sucção | Ao aspirar sujeira |
+| Bip | Bateria fraca (a cada 2 s) e borda da escada (rápido) |
+| Plug | Ao entrar na base |
+| Miado | Quando o gato vê o robô e quando pega |
+| Chaves + porta | Últimos 30 s |
 | Jingle | Vitória / derrota |
-| Música | Trilha leve em loop, volume baixo |
+| Música | Trilha leve em loop (continua tocando na pausa) |
 
-Fontes sugeridas: Kenney (packs de áudio CC0), freesound.org (checar a licença de cada arquivo).
-
----
-
-## 13. Assets
-
-| Necessidade | Fonte sugerida |
-|---|---|
-| Móveis e cômodos | **Kenney – Furniture Kit** (CC0) |
-| Gato | Modelo low-poly CC0/CC-BY (Quaternius, Poly Pizza) |
-| Robô | Primitivas do Unity + materiais próprios |
-| Texturas de chão e sujeira | Kenney / ambientCG (CC0) |
-| UI | Kenney – UI Pack (CC0) |
-
-**Critério 3 (visual):** paleta coerente (low-poly e cores suaves), escala real de 1 m, materiais URP configurados, iluminação com uma luz direcional + luzes de ambiente (abajur), sombras ligadas. A **sombra do robô** é importante para a noção de profundidade.
-
-Todos os créditos vão no `README.md`.
+| Início na base | Embaixo do sofá | Cozinha |
+|---|---|---|
+| ![](Docs/Screenshots/01_inicio_base.png) | ![](Docs/Screenshots/02_embaixo_sofa.png) | ![](Docs/Screenshots/03_cozinha.png) |
 
 ---
 
-## 14. Arquitetura de código
+## 11. Arquitetura técnica
 
-### Estrutura de pastas
 ```
 Assets/_Project/
-├── Scenes/        (MainMenu, Level01)
+├── Scenes/      MainMenu, Level01 (+ NavMesh e pós-processamento)
 ├── Scripts/
-│   ├── Core/      (GameManager, GameState, SceneLoader)
-│   ├── Player/    (RobotController, BatterySystem, CliffSensor, RobotVisuals)
-│   ├── Gameplay/  (DirtSpot, CleaningManager, ChargingDock, FallZone, SockTrap, LevelTimer)
-│   ├── AI/        (CatAI)
-│   ├── Camera/    (CameraFollow, OcclusionFader)
-│   ├── UI/        (HUDController, PauseMenu, EndScreen, MainMenu)
-│   └── Audio/     (AudioManager)
-├── Prefabs/
-├── Materials/
-├── Audio/
-└── Art/ThirdParty/   (assets importados, cada pack em sua pasta)
+│   ├── Core/      GameManager, GameState, SceneLoader, GameSettings
+│   ├── Player/    RobotController, BatterySystem, CliffSensor, RobotVisuals
+│   ├── Gameplay/  DirtSpot, CleaningManager, ChargingDock, FallZone, SockTrap, LevelTimer
+│   ├── AI/        CatAI
+│   ├── Camera/    CameraFollow, OcclusionFader, FadeableObject, MenuCameraOrbit, Billboard
+│   ├── UI/        HUDController, PauseMenu, EndScreen, MainMenu, OptionsMenu
+│   └── Audio/     AudioManager, ProceduralAudio
+├── Editor/      PoeirinhaBuilder (Tools > Poeirinha), BuilderUtils, TextureGen, ScreenshotTool
+├── Tests/PlayMode/  Level01Tests (22 testes automáticos)
+└── Prefabs/, Materials/, Art/
 ```
 
-### Responsabilidades
-| Script | Faz |
-|---|---|
-| `GameManager` | Dono do estado do jogo; recebe eventos de fim e decide vitória/derrota; pausa |
-| `RobotController` | Lê o input e move o Rigidbody; turbo; trava quando preso ou fora do estado `Playing` |
-| `BatterySystem` | Consome e recarrega; evento `OnBatteryChanged(float)` e `OnBatteryEmpty` |
-| `CliffSensor` | Raycast à frente; evento `OnEdgeWarning(bool)` |
-| `DirtSpot` | Trigger; avisa o `CleaningManager` e se desativa |
-| `CleaningManager` | Conta as manchas; evento `OnProgressChanged(float)`; avisa 90% |
-| `ChargingDock` | Trigger que liga e desliga a recarga |
-| `FallZone` | Trigger que aciona a derrota por queda |
-| `LevelTimer` | Contagem regressiva; evento `OnTimeUp` |
-| `CatAI` | Patrulha com NavMesh; empurrão e dano ao encostar |
-| `CameraFollow` | Seguir, suavizar e evitar paredes (SphereCast) |
-| `OcclusionFader` | Deixar transparentes os objetos entre a câmera e o robô |
-| `HUDController` / telas | Só **escutam** eventos e mostram dados; não contêm regra de jogo |
-| `AudioManager` | Toca SFX e música; volume central |
+**Princípios:**
+- **Eventos C#** (`event Action<...>`) ligam os sistemas: a UI e o áudio **só escutam**; a lógica não conhece a UI.
+- Todos os números de ajuste (velocidades, consumo, tempos, distâncias do gato) ficam em `[SerializeField]`, para
+  ajustar no Inspector.
+- Física em `FixedUpdate`, câmera em `LateUpdate`, input em `Update`.
+- **Cenas geradas por código:** `Tools > Poeirinha > Montar tudo` recria cenas, prefabs, materiais e a NavMesh.
+  Isso deixa o projeto reproduzível. Em troca, ajustes feitos à mão na cena se perdem se o script rodar de novo.
 
-### Princípios
-- Comunicação por **eventos C#** (`event Action<...>`): a UI não chama a lógica e a lógica não conhece a UI.
-- Parâmetros de ajuste (velocidades, consumo, tempos) como `[SerializeField]` com os valores deste documento, para ajustar no Inspector sem mexer no código.
-- Nada de `FindObjectOfType` em `Update`: as referências são resolvidas no `Awake`/`Start` ou via Inspector.
-- Física em `FixedUpdate`, câmera em `LateUpdate` e input em `Update`.
+| Layer | Uso |
+|---|---|
+| `Player` | Robô |
+| `Wall` | Paredes e móveis altos: a câmera colide e eles bloqueiam a visão do gato |
+| `Occluder` | Móveis com vão: ficam transparentes quando tapam o robô |
+| `Cat` | Gato |
 
 ---
 
-## 15. Como cada critério de avaliação é atendido
+## 12. Como cada critério de avaliação é atendido
 
 | Critério | Como o jogo atende |
 |---|---|
-| **1. Controles, câmera e sensação 3D** | Controle em tanque responsivo com aceleração suave; câmera em 3ª pessoa suavizada que não atravessa paredes; oclusão de móveis; escala gigante dos móveis; passagem embaixo deles; sensor de borda e sombra do robô dando noção de profundidade |
-| **2. Desempenho e colisões** | Collider redondo + atrito zero (não prende em quinas); Rigidbody Interpolate + Continuous (sem tremer nem atravessar); colliders de parede sem frestas; checklist de QA (seção 17) |
-| **3. Modelos, materiais e texturas** | Packs coerentes (Kenney low-poly), escala normalizada, materiais URP, iluminação e sombras, robô com LED de status |
-| **4. Estados e erros** | Máquina de estados única, guardas contra fim duplo, motivo de derrota claro, reinício por recarga de cena, pausa robusta, sem dead ends (a base sempre é alcançável) |
+| **1. Controles, câmera e sensação 3D** | Controle tanque com aceleração suave e sensibilidade ajustável; câmera em 3ª pessoa suavizada, com mouse e zoom, que não atravessa paredes; oclusão dos móveis; escala gigante dos móveis; passar por baixo deles é mecânica (sujeira e esconderijo); sensor de borda e sombra do robô dão noção de profundidade |
+| **2. Desempenho e colisões** | Collider redondo com atrito zero (não prende em quinas); `Interpolate` + `Continuous` (não treme nem atravessa); chão num collider só, paredes sem frestas, tapetes sem collider; cena leve (primitivas + iluminação em tempo real) |
+| **3. Modelos, materiais e texturas** | Paleta coerente, escala real, materiais URP configurados, texturas próprias, iluminação com sombras, LEDs com emissão e pós-processamento |
+| **4. Estados e erros** | Máquina de estados única com guardas contra fim duplo; motivo de derrota sempre visível; reinício por recarga de cena; pausa robusta; sem dead ends; 22 testes automáticos cobrindo vitória, as 3 derrotas, pausa, reiniciar 10× e voltar ao menu |
 
 ---
 
-## 16. Plano de implementação (passos pequenos)
+## 13. Qualidade (QA)
 
-> Hoje: **ter 17/11** · Entrega: **qua 25/11**. Cada passo termina com algo **jogável e testável**.
+### Testes automáticos (`Window > General > Test Runner > PlayMode`)
+22 testes, todos passando: início da partida, movimento e giro, turbo contra parede, deslizar na quina, bateria e
+base, derrota por bateria (e bloqueio de vitória depois), vitória por limpeza, espaço para o robô em todas as
+manchas, queda na escada com aviso do sensor, tempo esgotado, pausa, gato empurrando e tirando bateria uma vez só,
+câmera fora das paredes em 6 situações, sofá transparente com o robô embaixo, meia, reiniciar 10×, menu e volta,
+patrulha do gato, perseguição, esconderijo embaixo do sofá, opção de sensibilidade, câmera pelo mouse e cobertura da NavMesh.
 
-| # | Passo | Critério de aceite | Prazo sugerido |
-|---|---|---|---|
-| 1 | Projeto Unity (URP) + Git + `.gitignore` de Unity + estrutura de pastas | Projeto abre em todas as máquinas do grupo | 17/11 |
-| 2 | **Greybox** da casa com cubos (paredes, móveis com vão, escada) | Dá para andar pela casa com a câmera de cena | 17/11 |
-| 3 | `RobotController` (tanque + turbo) | Robô anda, gira, não prende em quinas nem treme | 18/11 |
-| 4 | `CameraFollow` + desvio de parede | Câmera nunca entra em parede; sem tremedeira | 18/11 |
-| 5 | `DirtSpot` + `CleaningManager` + HUD de % | Coletar manchas sobe a % | 19/11 |
-| 6 | `BatterySystem` + `ChargingDock` + HUD de bateria | Bateria cai, recarrega na base, derrota ao zerar | 19/11 |
-| 7 | `GameManager` + `LevelTimer` + telas de vitória, derrota e pausa | Dá para ganhar, perder (3 motivos), pausar e reiniciar 10× seguidas sem bug | 20/11 |
-| 8 | `FallZone` + `CliffSensor` | Alerta perto da borda; cair = derrota | 20/11 |
-| 9 | `CatAI` (NavMesh + empurrão) | Gato patrulha; encostar empurra e tira bateria | 21/11 |
-| 10 | `OcclusionFader` | Sofá e cama ficam transparentes com o robô embaixo | 21/11 |
-| 11 | Trocar o greybox por **assets reais**, materiais, iluminação e LED do robô | Visual coerente, escala certa | 22–23/11 |
-| 12 | Menu principal, "Como jogar", **áudio** | Fluxo completo Menu → Jogo → Fim → Menu | 23/11 |
-| 13 | *(Extra)* Meias, estrelas na vitória, escovas girando | — | se sobrar tempo |
-| 14 | **Build Windows** + QA (seção 17) + correções | Checklist 100% na build, não só no editor | 24/11 |
-| 15 | README (créditos), GDD atualizado, página no itch.io com GIFs, instruções e controles | Tudo publicado e submetido na jam | 24–25/11 |
-
----
-
-## 17. Checklist de QA (rodar **na build**, não só no editor)
-
-**Colisão e movimento**
-- [ ] Robô não prende em nenhuma quina, pé de móvel ou batente de porta
-- [ ] Robô não atravessa paredes nem móveis, mesmo no turbo
-- [ ] Robô não "sobe" em móveis nem tomba
-- [ ] Todas as manchas são alcançáveis (inclusive as de baixo dos móveis)
-
-**Câmera**
-- [ ] Câmera nunca fica dentro de parede ou de móvel
-- [ ] Robô sempre visível (oclusão funcionando)
-
-**Estados**
-- [ ] Vencer, perder pelos 3 motivos e reiniciar: tudo funciona 10× seguidas
-- [ ] Pausar e despausar em vários momentos, inclusive perto do fim
-- [ ] Não acontece vitória e derrota no mesmo frame
-- [ ] Voltar ao menu e jogar de novo: tudo resetado (bateria, timer, %)
+### Checklist manual (rodar **na build**)
+- [ ] Robô não prende em nenhuma quina, pé de móvel ou batente
+- [ ] Robô não atravessa paredes nem móveis no turbo
+- [ ] Câmera nunca fica dentro de parede; robô sempre visível
+- [ ] Vencer, perder pelos 3 motivos e reiniciar: 10× seguidas sem bug
+- [ ] Pausar e despausar em vários momentos, inclusive com as Opções abertas
+- [ ] Voltar ao menu e jogar de novo: bateria, timer e % zerados
+- [ ] Opções salvas depois de fechar e abrir o jogo
 - [ ] Botão Sair fecha o jogo
-
-**Desempenho**
-- [ ] ≥ 60 FPS estáveis na build, em notebook comum
-- [ ] Sem erros no console durante uma partida inteira
+- [ ] ≥ 60 FPS estáveis num notebook comum; console sem erros
 
 ---
 
-## 18. Instruções para o Claude Code
+## 14. Histórico de mudanças (documento vivo)
 
-1. **Implemente um passo da seção 16 por vez.** Não avance sem o grupo confirmar que o passo anterior funciona.
-2. Você **não tem acesso ao Editor do Unity**. Portanto:
-   - Escreva os scripts C# em `Assets/_Project/Scripts/...`.
-   - **Não edite à mão** arquivos `.unity`, `.prefab`, `.asset` ou `.meta`.
-   - Ao final de cada passo, entregue um **roteiro de montagem no Editor**: quais objetos criar, que componentes adicionar, quais valores colocar no Inspector, quais layers e tags criar.
-   - Quando valer a pena, crie **Editor scripts** (menu `Tools/Poeirinha/...`) que automatizem tarefas repetitivas, como espalhar as manchas de sujeira.
-3. Ao final de cada passo, diga **como testar** e qual é o **critério de aceite**.
-4. Use comentários inline nos trechos não óbvios (física, câmera, eventos). **O grupo precisa entender e explicar todo o código** nas sprints semanais.
-5. Siga a arquitetura da seção 14: eventos C#, UI sem regra de jogo, parâmetros em `[SerializeField]`.
-6. O projeto usa **Unity 6.3 LTS (6000.3.25f1)**: use as APIs atuais (ex.: `Rigidbody.linearVelocity`, `FindFirstObjectByType`) e evite as obsoletas.
-7. Commits pequenos e descritivos, um por passo ou subpasso.
-8. Nada de assets pagos. Todo asset novo entra na seção de créditos do `README.md`.
-9. Em caso de dúvida de design, **siga este documento**. Se algo aqui estiver inviável, proponha a alternativa mais simples e registre a mudança neste GDD.
+| Data | Mudança | Motivo |
+|---|---|---|
+| 17/11/2026 | Versão inicial do conceito: robô aspirador, bateria, gato, escada, 1 fase | Proposta do projeto |
+| 17/11/2026 | Collider do robô passou de esfera/cápsula para **cilindro convexo** | Esfera/cápsula de 0,35 m não cabe nos 0,09 m de altura (o robô não passaria embaixo do sofá) |
+| 17/11/2026 | Degraus com espelho de **0,25 m** (em vez de ~0,18 m) | Com 0,18 m o sensor de borda (0,2 m) não detectava a escada |
+| 17/11/2026 | Tapetes e placa da base **sem collider** | Degraus de milímetros travavam o robô |
+| 17/11/2026 | Visual com **primitivas + texturas geradas por código** e **áudio sintetizado**, em vez de packs Kenney | Zero dependência de licenças; pode ser trocado depois |
+| 17/11/2026 | Cenas montadas por **script de Editor** (`Tools > Poeirinha`) + **testes automáticos** | Reprodutibilidade e QA rápido |
+| 17/11/2026 | 1º playtest: robô **mais lento** (2,0 → 1,3 m/s; giro 180 → 120°/s) | Estava rápido e sensível demais |
+| 17/11/2026 | Tela de **Opções** (sensibilidade do giro e do mouse, volume, inverter Y, recentralizar) | Sensibilidade alta no playtest; cada jogador ajusta a sua |
+| 17/11/2026 | **Câmera controlada pelo mouse** (órbita + zoom) | Pedido do playtest: olhar em volta sem girar o robô |
+| 17/11/2026 | **Gato passou a perseguir** o robô; sofá e cama viraram **esconderijos** | Antes o gato só reagia; perseguir dá tensão e usa melhor o 3D |
+| 17/11/2026 | Correção: Rigidbody do gato sem `Interpolate`; NavMesh com célula de 5 cm | O gato andava devagar/travava; a NavMesh era grossa para um agente pequeno |
 
 ---
 
-## 19. Histórico de mudanças do GDD
+## 15. Créditos
 
-| Data | Mudança |
-|---|---|
-| 17/11/2026 | Versão inicial |
-| 17/11/2026 | **Implementação completa (passos 1–14).** Mudanças em relação ao plano: (a) collider do robô = **cilindro convexo** (MeshCollider), porque esfera/cápsula com 0.35 m de diâmetro não cabem nos 0.09 m de altura; (b) espelho dos degraus = **0.25 m**, senão o sensor de 0.2 m não detecta a borda; (c) tapetes e base de recarga sem collider (um degrau de milímetros travaria o robô); (d) visual com **primitivas + texturas geradas por código** e **áudio sintetizado por código** (sem assets de terceiros; dá para trocar por Kenney depois); (e) as cenas são montadas por Editor script (`Tools/Poeirinha/Montar tudo`) em vez de roteiro manual; (f) 17 testes PlayMode automáticos cobrindo boa parte da seção 17. |
-| 17/11/2026 | Após o 1º playtest: robô mais lento (1.3 m/s, giro 120°/s); tela de **Opções** (sensibilidade do giro e do mouse, volume); **câmera pelo mouse** (órbita + zoom, recentraliza sozinha); **gato persegue** o robô quando o vê, e o robô pode se esconder embaixo do sofá/cama. Correção: o Rigidbody do gato estava com Interpolate e travava o NavMeshAgent. |
+- **Programação, modelos, texturas e sons:** a equipe (modelos com primitivas do Unity; texturas e sons gerados por código).
+- **Fonte:** Liberation Sans (SIL Open Font License), incluída no TextMesh Pro.
+- **Engine e pacotes:** Unity 6.3 LTS, Universal Render Pipeline, Input System, AI Navigation, TextMesh Pro.
+- Desenvolvido com apoio do Claude Code (Anthropic) como assistente de programação.
