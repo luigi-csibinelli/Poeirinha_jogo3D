@@ -7,11 +7,11 @@
 | | |
 |---|---|
 | **Gênero** | Arcade de tempo, hiper-casual 3D |
-| **Plataforma** | Windows (teclado + mouse) |
+| **Plataforma** | Navegador (WebGL, no itch.io) e Windows, com teclado + mouse |
 | **Engine** | Unity 6.3 LTS (6000.3.25f1), URP, Input System, AI Navigation |
 | **Duração de uma partida** | até 3 minutos |
 | **Escopo** | 1 fase (apartamento) bem acabada, dificuldade fixa |
-| **Equipe** | _(preencher com os nomes dos integrantes)_ |
+| **Equipe** | Kauã Figueira, Luigi Sibinelli, Mathias Zanotto, Matheus Constante |
 
 ![Vista geral do apartamento](Docs/Screenshots/00_vista_geral.png)
 
@@ -55,7 +55,7 @@ Uma carga cheia dura ~66 s andando. Em 3 minutos o jogador volta à base **2 ou 
 | **Mouse** | Girar a câmera em volta do robô |
 | **Roda do mouse** | Zoom da câmera |
 | **E** (várias vezes) | Soltar-se de uma meia enroscada |
-| **Esc** | Pausar / despausar |
+| **Esc** ou **P** | Pausar / despausar |
 
 - **Controle "tanque":** frente e ré são relativas ao robô, não à câmera. Combina com o tema (é assim que um robô
   aspirador anda) e evita confusão quando o jogador gira a câmera com o mouse.
@@ -188,7 +188,7 @@ a câmera acompanha a queda por ~1 s antes da tela de fim.
 ## 9. Estados do jogo e telas
 
 ```
-MainMenu ──Jogar──▶ Playing ⇄ Paused (Esc)
+MainMenu ──Jogar──▶ Playing ⇄ Paused (Esc ou P)
    ▲                  │
    │                  ├─▶ Victory (90% limpo)
    │                  └─▶ Defeat (bateria / escada / tempo)
@@ -337,6 +337,7 @@ patrulha do gato, perseguição, esconderijo embaixo do sofá, opção de sensib
 | 17/11/2026 | **Câmera controlada pelo mouse** (órbita + zoom) | Pedido do playtest: olhar em volta sem girar o robô |
 | 17/11/2026 | **Gato passou a perseguir** o robô; sofá e cama viraram **esconderijos** | Antes o gato só reagia; perseguir dá tensão e usa melhor o 3D |
 | 17/11/2026 | Correção: Rigidbody do gato sem `Interpolate`; NavMesh com célula de 5 cm | O gato andava devagar/travava; a NavMesh era grossa para um agente pequeno |
+| 24/11/2026 | **Build WebGL** para jogar no navegador (itch.io): tecla **P** também pausa; o jogo pausa sozinho quando o navegador solta o mouse (Esc); botão **Sair** escondido no navegador; compressão Gzip com fallback | No navegador o Esc é usado para soltar o mouse e `Application.Quit()` não funciona |
 
 ---
 
@@ -345,4 +346,3 @@ patrulha do gato, perseguição, esconderijo embaixo do sofá, opção de sensib
 - **Programação, modelos, texturas e sons:** a equipe (modelos com primitivas do Unity; texturas e sons gerados por código).
 - **Fonte:** Liberation Sans (SIL Open Font License), incluída no TextMesh Pro.
 - **Engine e pacotes:** Unity 6.3 LTS, Universal Render Pipeline, Input System, AI Navigation, TextMesh Pro.
-- Desenvolvido com apoio do Claude Code (Anthropic) como assistente de programação.
